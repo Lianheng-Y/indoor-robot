@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.16)
 project(robot_description)
 find_package(ament_cmake REQUIRED)
 install(DIRECTORY urdf DESTINATION share/${PROJECT_NAME})

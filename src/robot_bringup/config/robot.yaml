@@ -1,4 +1,25 @@
 base_driver:
   ros__parameters:
-    max_speed: 0.6
-    wheel_radius: 0.1
+    max_linear_speed: 0.6
+    max_angular_speed: 1.5
+    command_timeout: 0.5
+    publish_rate: 50.0
+    odom_frame: odom
+    base_frame: base_link
+
+planner:
+  ros__parameters:
+    linear_gain: 0.8
+    angular_gain: 2.0
+    max_linear_speed: 0.45
+    max_angular_speed: 1.2
+    position_tolerance: 0.08
+    control_rate: 20.0
+    goal_frame: odom
+
+task_manager:
+  ros__parameters:
+    auto_start: false
+    frame_id: odom
+    waypoint_x: [1.0, 1.0, 0.0]
+    waypoint_y: [0.0, 1.0, 0.0]

@@ -1,10 +1,29 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.16)
 project(robot_base_driver)
+
 find_package(ament_cmake REQUIRED)
-find_package(rclcpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+
 add_executable(base_driver_node src/base_driver_node.cpp)
-ament_target_dependencies(base_driver_node rclcpp geometry_msgs nav_msgs)
+if(COMMAND ament_target_dependencies)
+  ament_target_dependencies(base_driver_node geometry_msgs nav_msgs rclcpp tf2 tf2_ros)
+else()
+  target_link_libraries(
+    base_driver_node
+    rclcpp::rclcpp
+    tf2::tf2
+    tf2_ros::tf2_ros
+    ${geometry_msgs_TARGETS}
+    ${nav_msgs_TARGETS}
+  )
+endif()
+target_compile_features(base_driver_node PRIVATE cxx_std_17)
+target_compile_options(base_driver_node PRIVATE -Wall -Wextra -Wpedantic)
+
 install(TARGETS base_driver_node DESTINATION lib/${PROJECT_NAME})
+
 ament_package()
