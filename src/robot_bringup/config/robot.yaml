@@ -1,0 +1,4 @@
+base_driver:
+  ros__parameters:
+    max_speed: 0.6
+    wheel_radius: 0.1

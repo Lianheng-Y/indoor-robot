@@ -1,0 +1,10 @@
+name: ros2-ci
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ros:humble-ros-base
+    steps:
+      - uses: actions/checkout@v4
+      - run: apt-get update && apt-get install -y python3-colcon-common-extensions
+      - run: . /opt/ros/humble/setup.sh && colcon build --symlink-install

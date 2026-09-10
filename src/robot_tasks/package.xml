@@ -1,0 +1,1 @@
+<package format="3"><name>robot_tasks</name><version>0.1.0</version><description>Task state machine extension point</description><maintainer email="dev@example.com">robot team</maintainer><license>Apache-2.0</license><buildtool_depend>ament_cmake</buildtool_depend><depend>rclcpp</depend><export><build_type>ament_cmake</build_type></export></package>

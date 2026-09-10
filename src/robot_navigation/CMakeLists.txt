@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.8)
+project(robot_navigation)
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+add_executable(planner_node src/planner_node.cpp)
+ament_target_dependencies(planner_node rclcpp)
+install(TARGETS planner_node DESTINATION lib/${PROJECT_NAME})
+ament_package()
