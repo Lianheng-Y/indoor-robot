@@ -28,6 +28,12 @@ point_controller:
 task_manager:
   ros__parameters:
     auto_start: false
+    resume_on_start: false
     frame_id: odom
+    waypoint_timeout: 60.0
+    max_retries: 2
+    skip_on_failure: false
+    battery_threshold: 0.20
+    state_file: /tmp/robot_task_state
     waypoint_x: [1.0, 1.0, 0.0]
     waypoint_y: [0.0, 1.0, 0.0]

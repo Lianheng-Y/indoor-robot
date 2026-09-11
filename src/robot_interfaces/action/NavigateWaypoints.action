@@ -1,0 +1,11 @@
+geometry_msgs/PoseStamped[] waypoints
+float32[] dwell_times
+bool loop
+---
+bool success
+uint32 completed_waypoints
+string message
+---
+uint32 current_waypoint
+float32 completion_percentage
+string state

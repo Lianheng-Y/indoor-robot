@@ -60,6 +60,16 @@ ros2 topic echo /odom
 ros2 run tf2_ros tf2_echo map base_link
 ```
 
+任务管理器的正式接口是 `robot_interfaces/action/NavigateWaypoints`，每个航点包含完整 `PoseStamped`，并可配套停留秒数：
+
+```bash
+ros2 action send_goal /navigate_waypoints robot_interfaces/action/NavigateWaypoints \
+  "{waypoints: [{header: {frame_id: odom}, pose: {position: {x: 1.0}, orientation: {w: 1.0}}}, {header: {frame_id: odom}, pose: {position: {x: 1.0, y: 1.0}, orientation: {w: 1.0}}}], dwell_times: [2.0, 0.0], loop: false}" \
+  --feedback
+```
+
+任务支持 `patrol`、`pause`、`resume`、`home`、`stop` 命令。`waypoint_timeout`、`max_retries` 和 `skip_on_failure` 控制单点超时后的重试/跳过策略；`battery_state` 的电量低于 `battery_threshold` 时自动返航。启用 `resume_on_start` 后，任务索引会从 `state_file` 恢复。
+
 ### Nav2 模式
 
 Nav2 模式需要一个发布 `sensor_msgs/msg/LaserScan` 的 `/scan` 数据源，例如真实雷达或 Gazebo 插件。现有运动学底盘只发布 `/odom`，不会伪造障碍物扫描。
@@ -142,6 +152,7 @@ ros2 launch robot_bringup real_robot.launch.py \
 | --- | --- | --- | --- |
 | `/task_command` | `std_msgs/msg/String` | 输入 | `patrol`、`home` 或 `stop` |
 | `/task_status` | `std_msgs/msg/String` | 输出 | 当前任务状态 |
+| `/navigate_waypoints` | `robot_interfaces/action/NavigateWaypoints` | 输入/输出 | 多航点任务、取消、结果和进度反馈 |
 | `/navigate_to_pose` | `robot_interfaces/action/NavigateToPose` 或 `nav2_msgs/action/NavigateToPose` | 输入/输出 | 取决于启动的导航模式 |
 | `/scan` | `sensor_msgs/msg/LaserScan` | Nav2 输入 | 定位和动态障碍物观测 |
 | `/cmd_vel` | `geometry_msgs/msg/Twist` | 内部 | 控制器速度命令 |
@@ -155,6 +166,7 @@ ros2 launch robot_bringup real_robot.launch.py \
 - `robot_base_driver`：独立速度安全层和仅供开发使用的运动学模拟器
 - `robot_navigation`：独立的里程计反馈点控制器，不承担路径规划
 - `robot_tasks`：巡航/返航任务状态机
+- `robot_tasks`：强类型多航点 Action、暂停/恢复、重试/跳过、持久化和低电量返航
 - `robot_description`：参数化 Xacro、传感器模型、Gazebo 插件和仿真世界
 - `robot_bringup`：轻量模式与 Nav2 模式 launch、参数和示例地图
 - `docker`：ROS 2 Humble 构建环境
