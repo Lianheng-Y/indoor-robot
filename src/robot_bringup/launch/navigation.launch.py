@@ -7,7 +7,10 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
-import xacro
+try:
+    import xacro
+except ModuleNotFoundError:
+    xacro = None
 
 
 def generate_launch_description():
@@ -15,9 +18,14 @@ def generate_launch_description():
     description_share = Path(get_package_share_directory("robot_description"))
     nav2_share = Path(get_package_share_directory("nav2_bringup"))
 
-    robot_description = xacro.process_file(
-        str(description_share / "urdf" / "robot.xacro")
-    ).toxml()
+    if xacro is None:
+        robot_description = (description_share / "urdf" / "robot.urdf").read_text(
+            encoding="utf-8"
+        )
+    else:
+        robot_description = xacro.process_file(
+            str(description_share / "urdf" / "robot.xacro")
+        ).toxml()
     use_sim_time = LaunchConfiguration("use_sim_time")
     autostart = LaunchConfiguration("autostart")
     map_file = LaunchConfiguration("map")
