@@ -7,7 +7,7 @@ base_driver:
     odom_frame: odom
     base_frame: base_footprint
 
-planner:
+point_controller:
   ros__parameters:
     linear_gain: 0.8
     angular_gain: 2.0

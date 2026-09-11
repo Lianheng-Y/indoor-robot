@@ -2,7 +2,7 @@
 <package format="3">
   <name>robot_navigation</name>
   <version>0.2.0</version>
-  <description>Odometry-feedback point-to-point controller for the indoor robot.</description>
+  <description>Lightweight odometry-feedback point controller for the indoor robot.</description>
   <maintainer email="dev@example.com">robot team</maintainer>
   <license>Apache-2.0</license>
   <buildtool_depend>ament_cmake</buildtool_depend>

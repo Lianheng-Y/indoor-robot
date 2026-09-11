@@ -49,13 +49,13 @@ double yaw_from_quaternion(const geometry_msgs::msg::Quaternion & q)
 }
 }  // namespace
 
-class Planner final : public rclcpp::Node
+class PointController final : public rclcpp::Node
 {
 public:
   using NavigateToPose = robot_interfaces::action::NavigateToPose;
   using GoalHandle = rclcpp_action::ServerGoalHandle<NavigateToPose>;
 
-  Planner() : Node("planner")
+  PointController() : Node("point_controller")
   {
     linear_gain_ = declare_parameter("linear_gain", 0.8);
     angular_gain_ = declare_parameter("angular_gain", 2.0);
@@ -252,7 +252,7 @@ private:
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<Planner>());
+  rclcpp::spin(std::make_shared<PointController>());
   rclcpp::shutdown();
   return 0;
 }

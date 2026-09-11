@@ -68,8 +68,8 @@ def generate_launch_description():
             ),
             Node(
                 package="robot_navigation",
-                executable="planner_node",
-                name="planner",
+                executable="point_controller_node",
+                name="point_controller",
                 parameters=[
                     parameters,
                     {"use_sim_time": ParameterValue(use_sim_time, value_type=bool)},

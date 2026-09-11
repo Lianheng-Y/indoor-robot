@@ -8,13 +8,13 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(robot_interfaces REQUIRED)
 
-add_executable(planner_node src/planner_node.cpp)
+add_executable(point_controller_node src/point_controller_node.cpp)
 if(COMMAND ament_target_dependencies)
   ament_target_dependencies(
-    planner_node geometry_msgs nav_msgs rclcpp rclcpp_action robot_interfaces)
+    point_controller_node geometry_msgs nav_msgs rclcpp rclcpp_action robot_interfaces)
 else()
   target_link_libraries(
-    planner_node
+    point_controller_node
     rclcpp::rclcpp
     rclcpp_action::rclcpp_action
     ${geometry_msgs_TARGETS}
@@ -22,9 +22,9 @@ else()
     ${robot_interfaces_TARGETS}
   )
 endif()
-target_compile_features(planner_node PRIVATE cxx_std_17)
-target_compile_options(planner_node PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_features(point_controller_node PRIVATE cxx_std_17)
+target_compile_options(point_controller_node PRIVATE -Wall -Wextra -Wpedantic)
 
-install(TARGETS planner_node DESTINATION lib/${PROJECT_NAME})
+install(TARGETS point_controller_node DESTINATION lib/${PROJECT_NAME})
 
 ament_package()
