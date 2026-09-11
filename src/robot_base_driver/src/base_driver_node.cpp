@@ -18,6 +18,17 @@
 
 using namespace std::chrono_literals;
 
+namespace
+{
+bool finite_twist(const geometry_msgs::msg::Twist & command)
+{
+  const auto & linear = command.linear;
+  const auto & angular = command.angular;
+  return std::isfinite(linear.x) && std::isfinite(linear.y) && std::isfinite(linear.z) &&
+         std::isfinite(angular.x) && std::isfinite(angular.y) && std::isfinite(angular.z);
+}
+}  // namespace
+
 class BaseDriver final : public rclcpp::Node
 {
 public:
@@ -28,7 +39,7 @@ public:
     command_timeout_ = declare_parameter("command_timeout", 0.5);
     publish_rate_ = declare_parameter("publish_rate", 50.0);
     odom_frame_ = declare_parameter("odom_frame", "odom");
-    base_frame_ = declare_parameter("base_frame", "base_link");
+    base_frame_ = declare_parameter("base_frame", "base_footprint");
 
     if (max_linear_speed_ <= 0.0 || max_angular_speed_ <= 0.0 ||
       command_timeout_ <= 0.0 || publish_rate_ <= 0.0)
@@ -39,9 +50,14 @@ public:
     command_sub_ = create_subscription<geometry_msgs::msg::Twist>(
       "cmd_vel", rclcpp::QoS(10),
       [this](geometry_msgs::msg::Twist::ConstSharedPtr message) {
-        command_ = *message;
         last_command_time_ = now();
         command_received_ = true;
+        if (!finite_twist(*message)) {
+          command_ = geometry_msgs::msg::Twist();
+          RCLCPP_ERROR(get_logger(), "Rejected non-finite velocity command; stopping");
+          return;
+        }
+        command_ = *message;
       });
     odom_pub_ = create_publisher<nav_msgs::msg::Odometry>("odom", rclcpp::QoS(10));
     safe_command_pub_ =

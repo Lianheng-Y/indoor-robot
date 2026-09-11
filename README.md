@@ -4,7 +4,7 @@
 
 ## 功能
 
-- 底盘安全层：线速度/角速度限幅、命令超时停车、里程计和 `odom -> base_link` TF
+- 底盘安全层：线速度/角速度限幅、命令超时停车、里程计和 `odom -> base_footprint` TF
 - 点到点控制：订阅目标与里程计，进行航向校正并发布速度命令
 - 任务状态机：支持多点巡航、返航、停止及状态发布
 - 机器人模型：底盘、左右轮和 LiDAR，可由 `robot_state_publisher` 发布完整 TF
@@ -32,8 +32,8 @@ ros2 launch robot_bringup simulation.launch.py
 向控制器直接发送一个 `odom` 坐标系目标：
 
 ```bash
-ros2 topic pub --once /goal_pose geometry_msgs/msg/PoseStamped \
-  "{header: {frame_id: odom}, pose: {position: {x: 1.0, y: 0.5}, orientation: {w: 1.0}}}"
+ros2 action send_goal /navigate_to_pose robot_interfaces/action/NavigateToPose \
+  "{target_pose: {header: {frame_id: odom}, pose: {position: {x: 1.0, y: 0.5}, orientation: {w: 1.0}}}}"
 ```
 
 启动预设三点巡航：
@@ -53,7 +53,7 @@ ros2 launch robot_bringup simulation.launch.py auto_start:=true
 ```bash
 ros2 topic echo /task_status
 ros2 topic echo /odom
-ros2 run tf2_ros tf2_echo odom base_link
+ros2 run tf2_ros tf2_echo map base_link
 ```
 
 ## 主要接口
@@ -62,8 +62,7 @@ ros2 run tf2_ros tf2_echo odom base_link
 | --- | --- | --- | --- |
 | `/task_command` | `std_msgs/msg/String` | 输入 | `patrol`、`home` 或 `stop` |
 | `/task_status` | `std_msgs/msg/String` | 输出 | 当前任务状态 |
-| `/goal_pose` | `geometry_msgs/msg/PoseStamped` | 输入/内部 | `odom` 坐标系目标点 |
-| `/goal_reached` | `std_msgs/msg/Bool` | 输出 | 控制器到达目标 |
+| `/navigate_to_pose` | `robot_interfaces/action/NavigateToPose` | 输入/输出 | 带取消、结果和反馈的导航目标 |
 | `/cmd_vel` | `geometry_msgs/msg/Twist` | 内部 | 控制器速度命令 |
 | `/cmd_vel_safe` | `geometry_msgs/msg/Twist` | 输出 | 限幅和超时处理后的命令 |
 | `/odom` | `nav_msgs/msg/Odometry` | 输出 | 仿真里程计 |

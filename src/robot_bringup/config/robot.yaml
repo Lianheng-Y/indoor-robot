@@ -5,7 +5,7 @@ base_driver:
     command_timeout: 0.5
     publish_rate: 50.0
     odom_frame: odom
-    base_frame: base_link
+    base_frame: base_footprint
 
 planner:
   ros__parameters:
@@ -15,6 +15,7 @@ planner:
     max_angular_speed: 1.2
     position_tolerance: 0.08
     control_rate: 20.0
+    odom_timeout: 0.5
     goal_frame: odom
 
 task_manager:

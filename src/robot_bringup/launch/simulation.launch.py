@@ -32,6 +32,19 @@ def generate_launch_description():
                 description="Start the configured patrol after launch",
             ),
             Node(
+                package="tf2_ros",
+                executable="static_transform_publisher",
+                name="map_to_odom",
+                arguments=[
+                    "--x", "0", "--y", "0", "--z", "0", "--yaw", "0",
+                    "--frame-id", "map", "--child-frame-id", "odom",
+                ],
+                parameters=[
+                    {"use_sim_time": ParameterValue(use_sim_time, value_type=bool)}
+                ],
+                output="screen",
+            ),
+            Node(
                 package="robot_state_publisher",
                 executable="robot_state_publisher",
                 name="robot_state_publisher",

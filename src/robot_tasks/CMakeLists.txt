@@ -4,16 +4,21 @@ project(robot_tasks)
 find_package(ament_cmake REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_action REQUIRED)
+find_package(robot_interfaces REQUIRED)
 find_package(std_msgs REQUIRED)
 
 add_executable(task_manager_node src/task_manager_node.cpp)
 if(COMMAND ament_target_dependencies)
-  ament_target_dependencies(task_manager_node geometry_msgs rclcpp std_msgs)
+  ament_target_dependencies(
+    task_manager_node geometry_msgs rclcpp rclcpp_action robot_interfaces std_msgs)
 else()
   target_link_libraries(
     task_manager_node
     rclcpp::rclcpp
+    rclcpp_action::rclcpp_action
     ${geometry_msgs_TARGETS}
+    ${robot_interfaces_TARGETS}
     ${std_msgs_TARGETS}
   )
 endif()
