@@ -7,11 +7,12 @@ find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(robot_interfaces REQUIRED)
+find_package(tf2 REQUIRED)
 
 add_executable(point_controller_node src/point_controller_node.cpp)
 if(COMMAND ament_target_dependencies)
   ament_target_dependencies(
-    point_controller_node geometry_msgs nav_msgs rclcpp rclcpp_action robot_interfaces)
+    point_controller_node geometry_msgs nav_msgs rclcpp rclcpp_action robot_interfaces tf2)
 else()
   target_link_libraries(
     point_controller_node
@@ -20,6 +21,7 @@ else()
     ${geometry_msgs_TARGETS}
     ${nav_msgs_TARGETS}
     ${robot_interfaces_TARGETS}
+    tf2::tf2
   )
 endif()
 target_compile_features(point_controller_node PRIVATE cxx_std_17)

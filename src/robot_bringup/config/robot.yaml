@@ -24,6 +24,15 @@ point_controller:
     control_rate: 20.0
     odom_timeout: 0.5
     goal_frame: odom
+    yaw_tolerance: 0.05
+    max_linear_accel: 0.8
+    max_linear_decel: 1.2
+    max_angular_accel: 2.0
+    max_angular_decel: 3.0
+    command_smoothing_alpha: 0.35
+    max_odom_jump: 1.0
+    odom_filter_alpha: 0.35
+    allow_reverse: false
 
 task_manager:
   ros__parameters:

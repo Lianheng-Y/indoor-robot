@@ -11,6 +11,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <robot_interfaces/action/navigate_to_pose.hpp>
+#include <tf2/LinearMath/Quaternion.hpp>
 
 namespace
 {
@@ -41,11 +42,24 @@ bool valid_odometry_pose(const geometry_msgs::msg::Pose & pose)
   return norm_squared > 1e-12;
 }
 
+bool valid_orientation(const geometry_msgs::msg::Quaternion & q)
+{
+  return q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w > 1e-12;
+}
+
 double yaw_from_quaternion(const geometry_msgs::msg::Quaternion & q)
 {
+  const double norm = std::sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
+  if (!std::isfinite(norm) || norm <= 1e-12) {
+    return 0.0;
+  }
+  const double x = q.x / norm;
+  const double y = q.y / norm;
+  const double z = q.z / norm;
+  const double w = q.w / norm;
   return std::atan2(
-    2.0 * (q.w * q.z + q.x * q.y),
-    1.0 - 2.0 * (q.y * q.y + q.z * q.z));
+    2.0 * (w * z + x * y),
+    1.0 - 2.0 * (y * y + z * z));
 }
 }  // namespace
 
@@ -64,10 +78,23 @@ public:
     position_tolerance_ = declare_parameter("position_tolerance", 0.08);
     control_rate_ = declare_parameter("control_rate", 20.0);
     odom_timeout_ = declare_parameter("odom_timeout", 0.5);
+    yaw_tolerance_ = declare_parameter("yaw_tolerance", 0.05);
+    max_linear_accel_ = declare_parameter("max_linear_accel", 0.8);
+    max_linear_decel_ = declare_parameter("max_linear_decel", 1.2);
+    max_angular_accel_ = declare_parameter("max_angular_accel", 2.0);
+    max_angular_decel_ = declare_parameter("max_angular_decel", 3.0);
+    command_smoothing_alpha_ = declare_parameter("command_smoothing_alpha", 0.35);
+    max_odom_jump_ = declare_parameter("max_odom_jump", 1.0);
+    odom_filter_alpha_ = declare_parameter("odom_filter_alpha", 0.35);
+    allow_reverse_ = declare_parameter("allow_reverse", false);
     goal_frame_ = declare_parameter("goal_frame", "odom");
     if (linear_gain_ <= 0.0 || angular_gain_ <= 0.0 || max_linear_speed_ <= 0.0 ||
       max_angular_speed_ <= 0.0 || position_tolerance_ <= 0.0 ||
-      control_rate_ <= 0.0 || odom_timeout_ <= 0.0)
+      control_rate_ <= 0.0 || odom_timeout_ <= 0.0 || yaw_tolerance_ <= 0.0 ||
+      max_linear_accel_ <= 0.0 || max_linear_decel_ <= 0.0 || max_angular_accel_ <= 0.0 ||
+      max_angular_decel_ <= 0.0 || command_smoothing_alpha_ <= 0.0 ||
+      command_smoothing_alpha_ > 1.0 || max_odom_jump_ <= 0.0 ||
+      odom_filter_alpha_ <= 0.0 || odom_filter_alpha_ > 1.0)
     {
       throw std::invalid_argument("controller parameters must be positive");
     }
@@ -80,8 +107,32 @@ public:
             get_logger(), "Rejected odometry containing non-finite or invalid pose/velocity");
           return;
         }
+        const double x = message->pose.pose.position.x;
+        const double y = message->pose.pose.position.y;
+        if (filtered_odom_received_ && std::hypot(x - filtered_x_, y - filtered_y_) > max_odom_jump_) {
+          RCLCPP_WARN(get_logger(), "Rejected odometry position jump; retaining last estimate");
+          return;
+        }
+        const double raw_yaw = yaw_from_quaternion(message->pose.pose.orientation);
+        if (!filtered_odom_received_) {
+          filtered_x_ = x; filtered_y_ = y; filtered_yaw_ = raw_yaw;
+        } else {
+          filtered_x_ = odom_filter_alpha_ * x + (1.0 - odom_filter_alpha_) * filtered_x_;
+          filtered_y_ = odom_filter_alpha_ * y + (1.0 - odom_filter_alpha_) * filtered_y_;
+          const double yaw_delta = std::remainder(raw_yaw - filtered_yaw_, 2.0 * M_PI);
+          filtered_yaw_ = std::remainder(filtered_yaw_ + odom_filter_alpha_ * yaw_delta, 2.0 * M_PI);
+        }
         odometry_ = *message;
+        odometry_.pose.pose.position.x = filtered_x_;
+        odometry_.pose.pose.position.y = filtered_y_;
+        tf2::Quaternion filtered_orientation;
+        filtered_orientation.setRPY(0.0, 0.0, filtered_yaw_);
+        odometry_.pose.pose.orientation.x = filtered_orientation.x();
+        odometry_.pose.pose.orientation.y = filtered_orientation.y();
+        odometry_.pose.pose.orientation.z = filtered_orientation.z();
+        odometry_.pose.pose.orientation.w = filtered_orientation.w();
         odometry_received_ = true;
+        filtered_odom_received_ = true;
         last_odom_time_ = std::chrono::steady_clock::now();
       });
     command_pub_ = create_publisher<geometry_msgs::msg::Twist>("cmd_vel", rclcpp::QoS(10));
@@ -93,7 +144,7 @@ public:
         std::shared_ptr<const NavigateToPose::Goal> goal)
       {
         const auto & target = goal->target_pose;
-        if (!finite_pose(target.pose)) {
+        if (!finite_pose(target.pose) || !valid_orientation(target.pose.orientation)) {
           RCLCPP_WARN(get_logger(), "Rejected goal containing NaN or infinity");
           return rclcpp_action::GoalResponse::REJECT;
         }
@@ -122,6 +173,8 @@ public:
         }
         active_goal_ = goal_handle;
         target_ = goal_handle->get_goal()->target_pose;
+        phase_ = Phase::DRIVING;
+        last_command_ = geometry_msgs::msg::Twist();
         goal_start_time_ = std::chrono::steady_clock::now();
         RCLCPP_INFO(
           get_logger(), "Accepted goal: (%.2f, %.2f)",
@@ -137,7 +190,34 @@ public:
 private:
   void stop()
   {
-    command_pub_->publish(geometry_msgs::msg::Twist());
+    last_command_ = geometry_msgs::msg::Twist();
+    command_pub_->publish(last_command_);
+  }
+
+  static double limit_rate(double target, double current, double accel, double decel, double dt)
+  {
+    const double limit = (std::abs(target) > std::abs(current) ? accel : decel) * dt;
+    return current + std::clamp(target - current, -limit, limit);
+  }
+
+  void publish_command(const geometry_msgs::msg::Twist & target, double dt)
+  {
+    geometry_msgs::msg::Twist smoothed;
+    smoothed.linear.x = command_smoothing_alpha_ * target.linear.x +
+      (1.0 - command_smoothing_alpha_) * last_command_.linear.x;
+    smoothed.angular.z = command_smoothing_alpha_ * target.angular.z +
+      (1.0 - command_smoothing_alpha_) * last_command_.angular.z;
+    geometry_msgs::msg::Twist limited;
+    limited.linear.x = limit_rate(
+      smoothed.linear.x, last_command_.linear.x, max_linear_accel_, max_linear_decel_, dt);
+    limited.angular.z = limit_rate(
+      smoothed.angular.z, last_command_.angular.z, max_angular_accel_, max_angular_decel_, dt);
+    if (!finite_twist(limited)) {
+      finish_with_failure("non-finite smoothed velocity command");
+      return;
+    }
+    last_command_ = limited;
+    command_pub_->publish(last_command_);
   }
 
   void finish_with_failure(const std::string & message)
@@ -190,6 +270,10 @@ private:
       return;
     }
 
+    const auto control_now = std::chrono::steady_clock::now();
+    const double dt = std::clamp(
+      std::chrono::duration<double>(control_now - last_control_time_).count(), 1e-3, 0.2);
+    last_control_time_ = control_now;
     const double dx = target_.pose.position.x - odometry_.pose.pose.position.x;
     const double dy = target_.pose.position.y - odometry_.pose.pose.position.y;
     const double distance = std::hypot(dx, dy);
@@ -198,29 +282,33 @@ private:
       return;
     }
 
-    if (distance <= position_tolerance_) {
-      stop();
-      auto result = std::make_shared<NavigateToPose::Result>();
-      result->success = true;
-      result->message = "goal reached";
-      active_goal_->succeed(result);
-      active_goal_.reset();
-      RCLCPP_INFO(get_logger(), "Goal reached");
-      return;
-    }
-
     const double yaw = yaw_from_quaternion(odometry_.pose.pose.orientation);
-    const double heading_error = std::remainder(std::atan2(dy, dx) - yaw, 2.0 * M_PI);
     geometry_msgs::msg::Twist command;
-    command.angular.z = std::clamp(
-      angular_gain_ * heading_error, -max_angular_speed_, max_angular_speed_);
-    const double alignment = std::max(0.0, std::cos(heading_error));
-    command.linear.x = std::min(linear_gain_ * distance, max_linear_speed_) * alignment;
-    if (!finite_twist(command)) {
-      finish_with_failure("navigation produced a non-finite velocity command");
-      return;
+    if (distance <= position_tolerance_) {
+      phase_ = Phase::ALIGNING;
+      const double target_yaw = yaw_from_quaternion(target_.pose.orientation);
+      const double yaw_error = std::remainder(target_yaw - yaw, 2.0 * M_PI);
+      if (std::abs(yaw_error) <= yaw_tolerance_) {
+        stop();
+        auto result = std::make_shared<NavigateToPose::Result>();
+        result->success = true; result->message = "goal position and orientation reached";
+        active_goal_->succeed(result); active_goal_.reset();
+        RCLCPP_INFO(get_logger(), "Goal position and orientation reached");
+        return;
+      }
+      command.angular.z = std::clamp(angular_gain_ * yaw_error, -max_angular_speed_, max_angular_speed_);
+    } else {
+      double heading_error = std::remainder(std::atan2(dy, dx) - yaw, 2.0 * M_PI);
+      double direction = 1.0;
+      if (allow_reverse_ && std::abs(heading_error) > M_PI_2) {
+        heading_error = std::remainder(heading_error + M_PI, 2.0 * M_PI);
+        direction = -1.0;
+      }
+      command.angular.z = std::clamp(angular_gain_ * heading_error, -max_angular_speed_, max_angular_speed_);
+      const double alignment = std::max(0.0, std::cos(heading_error));
+      command.linear.x = direction * std::min(linear_gain_ * distance, max_linear_speed_) * alignment;
     }
-    command_pub_->publish(command);
+    publish_command(command, dt);
 
     auto feedback = std::make_shared<NavigateToPose::Feedback>();
     feedback->remaining_distance = distance;
@@ -236,8 +324,25 @@ private:
   double position_tolerance_;
   double control_rate_;
   double odom_timeout_;
+  double yaw_tolerance_;
+  double max_linear_accel_;
+  double max_linear_decel_;
+  double max_angular_accel_;
+  double max_angular_decel_;
+  double command_smoothing_alpha_;
+  double max_odom_jump_;
+  bool allow_reverse_{false};
   std::string goal_frame_;
   bool odometry_received_{false};
+  bool filtered_odom_received_{false};
+  double filtered_x_{0.0};
+  double filtered_y_{0.0};
+  double filtered_yaw_{0.0};
+  double odom_filter_alpha_{0.35};
+  enum class Phase { DRIVING, ALIGNING };
+  Phase phase_{Phase::DRIVING};
+  geometry_msgs::msg::Twist last_command_;
+  std::chrono::steady_clock::time_point last_control_time_{std::chrono::steady_clock::now()};
   std::chrono::steady_clock::time_point last_odom_time_;
   std::chrono::steady_clock::time_point goal_start_time_;
   geometry_msgs::msg::PoseStamped target_;

@@ -6,6 +6,7 @@
 
 - 底盘安全层：线速度/角速度限幅、命令超时停车、里程计和 `odom -> base_footprint` TF
 - 轻量点控制：`point_controller_node` 根据目标与里程计进行航向校正
+- 控制器细节：位置/朝向两阶段控制、加减速限幅、输出平滑、里程计跳变抑制和可选倒车
 - Nav2 导航：地图服务器、AMCL、NavFn、Regulated Pure Pursuit、双 costmap 和恢复行为
 - 任务状态机：支持多点巡航、返航、停止及状态发布
 - 机器人模型：底盘、左右轮和 LiDAR，可由 `robot_state_publisher` 发布完整 TF
@@ -145,6 +146,22 @@ ros2 launch robot_bringup real_robot.launch.py \
 - NavFn A* 全局规划器和 Regulated Pure Pursuit 控制器
 - BT Navigator、旋转/后退/直行/等待恢复行为
 - 进度检查、目标检查、速度平滑和生命周期管理
+
+轻量点控制器在到达位置容差后会停止平移并原地旋转，直到目标四元数对应的 yaw 进入 `yaw_tolerance`。以下参数可调整控制动态：
+
+```yaml
+yaw_tolerance: 0.05
+max_linear_accel: 0.8
+max_linear_decel: 1.2
+max_angular_accel: 2.0
+max_angular_decel: 3.0
+command_smoothing_alpha: 0.35
+max_odom_jump: 1.0
+odom_filter_alpha: 0.35
+allow_reverse: false
+```
+
+`allow_reverse` 开启后，目标位于车后方时控制器会选择倒车；默认关闭以保持前进策略。异常里程计跳变会被拒绝，剩余数据使用一阶滤波后再参与控制。
 
 ## 主要接口
 
