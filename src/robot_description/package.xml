@@ -2,10 +2,11 @@
 <package format="3">
   <name>robot_description</name>
   <version>0.2.0</version>
-  <description>URDF model for the indoor mobile robot.</description>
+  <description>Parameterized Xacro and Gazebo Sim model for the indoor mobile robot.</description>
   <maintainer email="dev@example.com">robot team</maintainer>
   <license>Apache-2.0</license>
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <exec_depend>xacro</exec_depend>
   <exec_depend>robot_state_publisher</exec_depend>
   <export><build_type>ament_cmake</build_type></export>
 </package>

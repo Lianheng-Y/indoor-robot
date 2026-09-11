@@ -6,14 +6,15 @@ from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
+import xacro
 
 
 def generate_launch_description():
     bringup_share = Path(get_package_share_directory("robot_bringup"))
     description_share = Path(get_package_share_directory("robot_description"))
-    robot_description = (description_share / "urdf" / "robot.urdf").read_text(
-        encoding="utf-8"
-    )
+    robot_description = xacro.process_file(
+        str(description_share / "urdf" / "robot.xacro")
+    ).toxml()
 
     use_sim_time = LaunchConfiguration("use_sim_time")
     auto_start = LaunchConfiguration("auto_start")

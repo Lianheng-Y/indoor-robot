@@ -1,0 +1,67 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="indoor_robot_sensors">
+  <xacro:macro name="lidar_sensor" params="parent xyz">
+    <link name="lidar_link">
+      <inertial>
+        <mass value="0.25"/>
+        <inertia ixx="0.0002" ixy="0" ixz="0" iyy="0.0002" iyz="0" izz="0.0002"/>
+      </inertial>
+      <visual>
+        <origin xyz="0 0 0.035"/>
+        <geometry><cylinder radius="0.06" length="0.07"/></geometry>
+        <material name="sensor_gray"/>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0.035"/>
+        <geometry><cylinder radius="0.06" length="0.07"/></geometry>
+      </collision>
+    </link>
+    <joint name="lidar_joint" type="fixed">
+      <origin xyz="${xyz}"/>
+      <parent link="${parent}"/>
+      <child link="lidar_link"/>
+    </joint>
+    <gazebo reference="lidar_link">
+      <sensor name="lidar" type="gpu_lidar">
+        <always_on>true</always_on>
+        <update_rate>15.0</update_rate>
+        <visualize>true</visualize>
+        <topic>/scan</topic>
+        <gz_frame_id>lidar_link</gz_frame_id>
+        <lidar>
+          <scan>
+            <horizontal>
+              <samples>720</samples>
+              <resolution>1</resolution>
+              <min_angle>-3.14159265</min_angle>
+              <max_angle>3.14159265</max_angle>
+            </horizontal>
+          </scan>
+          <range>
+            <min>0.12</min>
+            <max>12.0</max>
+            <resolution>0.01</resolution>
+          </range>
+        </lidar>
+      </sensor>
+    </gazebo>
+  </xacro:macro>
+
+  <xacro:macro name="imu_sensor" params="parent xyz">
+    <link name="imu_link"/>
+    <joint name="imu_joint" type="fixed">
+      <origin xyz="${xyz}"/>
+      <parent link="${parent}"/>
+      <child link="imu_link"/>
+    </joint>
+    <gazebo reference="imu_link">
+      <sensor name="imu" type="imu">
+        <always_on>true</always_on>
+        <update_rate>100.0</update_rate>
+        <visualize>false</visualize>
+        <topic>/imu</topic>
+        <gz_frame_id>imu_link</gz_frame_id>
+      </sensor>
+    </gazebo>
+  </xacro:macro>
+</robot>

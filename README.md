@@ -1,6 +1,6 @@
 # ROS 2 室内自主移动机器人
 
-项目提供两套导航模式：无需 Gazebo 的轻量点到点控制闭环，以及基于 Nav2 的地图定位、全局规划、局部避障和行为树导航。底盘节点使用差速运动学积分速度命令并发布里程计，也可以替换为真实硬件驱动。
+项目提供三套运行模式：无需 Gazebo 的轻量点到点控制闭环、基于 Nav2 的传感器输入导航，以及 Gazebo Sim 真实物理仿真。仿真模式使用差速驱动、碰撞/摩擦、轮关节、2D LiDAR、IMU 和 Gazebo 时钟。
 
 ## 功能
 
@@ -9,6 +9,7 @@
 - Nav2 导航：地图服务器、AMCL、NavFn、Regulated Pure Pursuit、双 costmap 和恢复行为
 - 任务状态机：支持多点巡航、返航、停止及状态发布
 - 机器人模型：底盘、左右轮和 LiDAR，可由 `robot_state_publisher` 发布完整 TF
+- 参数化 Xacro：车体、轮径、轮距、传感器和 Gazebo 插件拆分在独立文件中
 - 工程配置：集中式 YAML 参数、可选自动巡航、Docker 和 GitHub Actions
 
 ## 环境与构建
@@ -85,6 +86,25 @@ ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose \
 
 Nav2 模式由 AMCL 发布 `map -> odom`。不要同时启动 `simulation.launch.py`，否则轻量模式的静态 `map -> odom` 会与 AMCL 冲突。
 
+### Gazebo Sim 物理仿真
+
+安装 `ros_gz_sim`、`ros_gz_bridge` 和 Gazebo Sim 后启动：
+
+```bash
+ros2 launch robot_bringup gazebo.launch.py
+```
+
+该入口会加载 `robot.xacro` 和 `indoor_world.sdf`，并启动：
+
+- `gz-sim-diff-drive-system`：差速驱动和物理里程计
+- 轮关节状态发布器及 `/tf`、`/odom` 桥接
+- 720 线等效 2D GPU LiDAR：`/scan`
+- 100 Hz IMU：`/imu`
+- `/clock` 仿真时间
+- Nav2 的 AMCL、costmap、规划、控制和恢复行为
+
+不要在 Gazebo 模式同时启动 `base_driver_node`，否则会产生重复的 `/odom` 和 `cmd_vel` 消费者。
+
 `config/nav2_params.yaml` 包含：
 
 - 全局 costmap：静态地图层、激光障碍层和膨胀层
@@ -112,8 +132,8 @@ Nav2 模式由 AMCL 发布 `map -> odom`。不要同时启动 `simulation.launch
 - `robot_base_driver`：安全速度处理、运动学仿真、里程计与 TF
 - `robot_navigation`：独立的里程计反馈点控制器，不承担路径规划
 - `robot_tasks`：巡航/返航任务状态机
-- `robot_description`：URDF 机器人模型
+- `robot_description`：参数化 Xacro、传感器模型、Gazebo 插件和仿真世界
 - `robot_bringup`：轻量模式与 Nav2 模式 launch、参数和示例地图
 - `docker`：ROS 2 Humble 构建环境
 
-部署到真实机器人时，应使用编码器/IMU 融合里程计替换运动学积分，并根据实际外形、雷达量程和运动学约束调整 `nav2_params.yaml`。
+Xacro 文件位于 `src/robot_description/urdf/`：`robot.xacro` 负责装配，`materials.xacro` 管理材质，`sensors.xacro` 管理 LiDAR/IMU，`gazebo.xacro` 管理物理插件。部署到真实机器人时，应使用编码器/IMU 融合里程计替换仿真插件，并根据实际外形、雷达量程和运动学约束调整 `nav2_params.yaml`。

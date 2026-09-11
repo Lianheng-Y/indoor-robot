@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="indoor_robot_materials">
+  <material name="body_blue">
+    <color rgba="0.10 0.35 0.70 1.0"/>
+  </material>
+  <material name="wheel_dark">
+    <color rgba="0.08 0.08 0.09 1.0"/>
+  </material>
+  <material name="sensor_gray">
+    <color rgba="0.55 0.60 0.65 1.0"/>
+  </material>
+</robot>
