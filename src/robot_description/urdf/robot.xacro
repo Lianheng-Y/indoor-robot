@@ -7,6 +7,13 @@
   <xacro:arg name="wheel_width" default="0.05"/>
   <xacro:arg name="wheel_separation" default="0.45"/>
   <xacro:arg name="body_mass" default="20.0"/>
+  <xacro:arg name="hardware_plugin" default="mock_components/GenericSystem"/>
+  <xacro:arg name="transport" default="serial"/>
+  <xacro:arg name="serial_port" default="/dev/ttyUSB0"/>
+  <xacro:arg name="baud_rate" default="115200"/>
+  <xacro:arg name="can_interface" default="can0"/>
+  <xacro:arg name="encoder_cpr" default="4096"/>
+  <xacro:arg name="gear_ratio" default="1.0"/>
 
   <xacro:property name="body_length" value="$(arg body_length)"/>
   <xacro:property name="body_width" value="$(arg body_width)"/>
@@ -15,6 +22,29 @@
   <xacro:property name="wheel_width" value="$(arg wheel_width)"/>
   <xacro:property name="wheel_separation" value="$(arg wheel_separation)"/>
   <xacro:property name="body_mass" value="$(arg body_mass)"/>
+
+  <ros2_control name="IndoorRobotSystem" type="system">
+    <hardware>
+      <!-- Replace with the serial/CAN hardware plugin on the real robot. -->
+      <plugin>$(arg hardware_plugin)</plugin>
+      <param name="transport">$(arg transport)</param>
+      <param name="serial_port">$(arg serial_port)</param>
+      <param name="baud_rate">$(arg baud_rate)</param>
+      <param name="can_interface">$(arg can_interface)</param>
+      <param name="encoder_cpr">$(arg encoder_cpr)</param>
+      <param name="gear_ratio">$(arg gear_ratio)</param>
+    </hardware>
+    <joint name="left_wheel_joint">
+      <command_interface name="velocity"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="right_wheel_joint">
+      <command_interface name="velocity"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+  </ros2_control>
 
   <xacro:include filename="$(find robot_description)/urdf/materials.xacro"/>
   <xacro:include filename="$(find robot_description)/urdf/sensors.xacro"/>

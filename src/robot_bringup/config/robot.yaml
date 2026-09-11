@@ -7,6 +7,13 @@ base_driver:
     odom_frame: odom
     base_frame: base_footprint
 
+velocity_safety:
+  ros__parameters:
+    max_linear_speed: 0.6
+    max_angular_speed: 1.5
+    command_timeout: 0.5
+    publish_rate: 50.0
+
 point_controller:
   ros__parameters:
     linear_gain: 0.8

@@ -1,6 +1,6 @@
 # ROS 2 室内自主移动机器人
 
-项目提供三套运行模式：无需 Gazebo 的轻量点到点控制闭环、基于 Nav2 的传感器输入导航，以及 Gazebo Sim 真实物理仿真。仿真模式使用差速驱动、碰撞/摩擦、轮关节、2D LiDAR、IMU 和 Gazebo 时钟。
+项目提供轻量点控制、Nav2 传感器导航、Gazebo Sim 物理仿真和 `ros2_control` 真实底盘四套运行模式。仿真模式使用差速驱动、碰撞/摩擦、轮关节、2D LiDAR、IMU 和 Gazebo 时钟。
 
 ## 功能
 
@@ -105,6 +105,29 @@ ros2 launch robot_bringup gazebo.launch.py
 
 不要在 Gazebo 模式同时启动 `base_driver_node`，否则会产生重复的 `/odom` 和 `cmd_vel` 消费者。
 
+### 真实底盘模式
+
+真实底盘使用 `ros2_control`，不启动会对速度指令做数学积分的 `base_driver_node`：
+
+```text
+/cmd_vel -> velocity_safety_node -> /cmd_vel_safe
+         -> diff_drive_controller -> hardware_interface -> serial/CAN motors
+wheel encoders -> hardware_interface -> diff_drive_controller -> /odom + odom TF
+```
+
+启动控制器框架：
+
+```bash
+ros2 launch robot_bringup real_robot.launch.py \
+  hardware_plugin:=your_hardware_package/SerialCanHardware \
+  transport:=serial serial_port:=/dev/ttyUSB0 baud_rate:=115200 \
+  encoder_cpr:=4096 gear_ratio:=30.0
+```
+
+`hardware_plugin` 必须实现 `hardware_interface::SystemInterface`，导出左右轮的 velocity command，以及 position/velocity state。launch 会将 `transport`、`serial_port`、`baud_rate`、`can_interface`、`encoder_cpr` 和 `gear_ratio` 传给插件；电机 ID、帧格式和错误码仍属于具体硬件协议，应由该插件实现，不能由通用导航节点猜测。
+
+不传 `hardware_plugin` 时使用 `mock_components/GenericSystem`，仅用于验证 controller manager、话题和控制器配置，不能提供真实编码器里程计。
+
 `config/nav2_params.yaml` 包含：
 
 - 全局 costmap：静态地图层、激光障碍层和膨胀层
@@ -123,17 +146,17 @@ ros2 launch robot_bringup gazebo.launch.py
 | `/scan` | `sensor_msgs/msg/LaserScan` | Nav2 输入 | 定位和动态障碍物观测 |
 | `/cmd_vel` | `geometry_msgs/msg/Twist` | 内部 | 控制器速度命令 |
 | `/cmd_vel_safe` | `geometry_msgs/msg/Twist` | 输出 | 限幅和超时处理后的命令 |
-| `/odom` | `nav_msgs/msg/Odometry` | 输出 | 仿真里程计 |
+| `/odom` | `nav_msgs/msg/Odometry` | 输出 | 模拟、Gazebo 或编码器里程计 |
 
 参数集中在 `src/robot_bringup/config/robot.yaml`。修改巡航点时，`waypoint_x` 和 `waypoint_y` 必须长度相同且非空。
 
 ## 包结构
 
-- `robot_base_driver`：安全速度处理、运动学仿真、里程计与 TF
+- `robot_base_driver`：独立速度安全层和仅供开发使用的运动学模拟器
 - `robot_navigation`：独立的里程计反馈点控制器，不承担路径规划
 - `robot_tasks`：巡航/返航任务状态机
 - `robot_description`：参数化 Xacro、传感器模型、Gazebo 插件和仿真世界
 - `robot_bringup`：轻量模式与 Nav2 模式 launch、参数和示例地图
 - `docker`：ROS 2 Humble 构建环境
 
-Xacro 文件位于 `src/robot_description/urdf/`：`robot.xacro` 负责装配，`materials.xacro` 管理材质，`sensors.xacro` 管理 LiDAR/IMU，`gazebo.xacro` 管理物理插件。部署到真实机器人时，应使用编码器/IMU 融合里程计替换仿真插件，并根据实际外形、雷达量程和运动学约束调整 `nav2_params.yaml`。
+`config/ros2_control.yaml` 定义差速控制器、闭环编码器里程计和 joint state broadcaster。Xacro 文件位于 `src/robot_description/urdf/`：`robot.xacro` 负责装配及 `ros2_control` 接口，`materials.xacro` 管理材质，`sensors.xacro` 管理 LiDAR/IMU，`gazebo.xacro` 管理物理插件。部署时还应根据实际外形、雷达量程和运动学约束调整 `nav2_params.yaml`。
