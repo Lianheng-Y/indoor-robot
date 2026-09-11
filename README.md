@@ -24,6 +24,15 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
+运行自动化测试：
+
+```bash
+colcon test --event-handlers console_direct+
+colcon test-result --all --verbose
+```
+
+测试覆盖底盘限速、非有限速度拒绝、0.5 秒命令超时、直线/旋转积分、角度归一化、加减速限制、位置和朝向到达停车、`patrol/pause/resume/home/stop` 状态策略，以及三点巡航配置和 TF 单父节点约束。
+
 ## 运行
 
 ### 轻量点控制模式

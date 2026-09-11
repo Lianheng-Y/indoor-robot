@@ -3,6 +3,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include "robot_base_driver/safety_math.hpp"
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <geometry_msgs/msg/twist.hpp>
@@ -20,13 +21,6 @@ using namespace std::chrono_literals;
 
 namespace
 {
-bool finite_twist(const geometry_msgs::msg::Twist & command)
-{
-  const auto & linear = command.linear;
-  const auto & angular = command.angular;
-  return std::isfinite(linear.x) && std::isfinite(linear.y) && std::isfinite(linear.z) &&
-         std::isfinite(angular.x) && std::isfinite(angular.y) && std::isfinite(angular.z);
-}
 }  // namespace
 
 class BaseDriver final : public rclcpp::Node
@@ -52,7 +46,7 @@ public:
       [this](geometry_msgs::msg::Twist::ConstSharedPtr message) {
         last_command_time_ = now();
         command_received_ = true;
-        if (!finite_twist(*message)) {
+        if (!robot_base_driver::finite_twist(*message)) {
           command_ = geometry_msgs::msg::Twist();
           RCLCPP_ERROR(get_logger(), "Rejected non-finite velocity command; stopping");
           return;
@@ -82,17 +76,12 @@ private:
 
     geometry_msgs::msg::Twist safe_command;
     if (command_received_ && (stamp - last_command_time_).seconds() <= command_timeout_) {
-      safe_command.linear.x =
-        std::clamp(command_.linear.x, -max_linear_speed_, max_linear_speed_);
-      safe_command.angular.z =
-        std::clamp(command_.angular.z, -max_angular_speed_, max_angular_speed_);
+      safe_command = robot_base_driver::limit_twist(command_, max_linear_speed_, max_angular_speed_);
     }
     safe_command_pub_->publish(safe_command);
 
-    const double heading_midpoint = yaw_ + safe_command.angular.z * dt * 0.5;
-    x_ += safe_command.linear.x * std::cos(heading_midpoint) * dt;
-    y_ += safe_command.linear.x * std::sin(heading_midpoint) * dt;
-    yaw_ = std::remainder(yaw_ + safe_command.angular.z * dt, 2.0 * M_PI);
+    robot_base_driver::integrate_unicycle(
+      x_, y_, yaw_, safe_command.linear.x, safe_command.angular.z, dt);
 
     tf2::Quaternion orientation;
     orientation.setRPY(0.0, 0.0, yaw_);

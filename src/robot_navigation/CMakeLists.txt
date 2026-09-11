@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 project(robot_navigation)
+include_directories(include)
 
 find_package(ament_cmake REQUIRED)
 find_package(geometry_msgs REQUIRED)
@@ -28,5 +29,12 @@ target_compile_features(point_controller_node PRIVATE cxx_std_17)
 target_compile_options(point_controller_node PRIVATE -Wall -Wextra -Wpedantic)
 
 install(TARGETS point_controller_node DESTINATION lib/${PROJECT_NAME})
+install(DIRECTORY include/ DESTINATION include)
+
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_controller_math test/test_controller_math.cpp)
+  target_include_directories(test_controller_math PRIVATE include)
+endif()
 
 ament_package()

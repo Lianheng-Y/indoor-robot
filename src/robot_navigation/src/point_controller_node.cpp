@@ -12,6 +12,7 @@
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <robot_interfaces/action/navigate_to_pose.hpp>
 #include <tf2/LinearMath/Quaternion.hpp>
+#include "robot_navigation/controller_math.hpp"
 
 namespace
 {
@@ -194,12 +195,6 @@ private:
     command_pub_->publish(last_command_);
   }
 
-  static double limit_rate(double target, double current, double accel, double decel, double dt)
-  {
-    const double limit = (std::abs(target) > std::abs(current) ? accel : decel) * dt;
-    return current + std::clamp(target - current, -limit, limit);
-  }
-
   void publish_command(const geometry_msgs::msg::Twist & target, double dt)
   {
     geometry_msgs::msg::Twist smoothed;
@@ -208,9 +203,9 @@ private:
     smoothed.angular.z = command_smoothing_alpha_ * target.angular.z +
       (1.0 - command_smoothing_alpha_) * last_command_.angular.z;
     geometry_msgs::msg::Twist limited;
-    limited.linear.x = limit_rate(
+    limited.linear.x = robot_navigation::limit_rate(
       smoothed.linear.x, last_command_.linear.x, max_linear_accel_, max_linear_decel_, dt);
-    limited.angular.z = limit_rate(
+    limited.angular.z = robot_navigation::limit_rate(
       smoothed.angular.z, last_command_.angular.z, max_angular_accel_, max_angular_decel_, dt);
     if (!finite_twist(limited)) {
       finish_with_failure("non-finite smoothed velocity command");
@@ -288,7 +283,8 @@ private:
       phase_ = Phase::ALIGNING;
       const double target_yaw = yaw_from_quaternion(target_.pose.orientation);
       const double yaw_error = std::remainder(target_yaw - yaw, 2.0 * M_PI);
-      if (std::abs(yaw_error) <= yaw_tolerance_) {
+      if (robot_navigation::should_stop_at_goal(
+          distance, yaw_error, position_tolerance_, yaw_tolerance_)) {
         stop();
         auto result = std::make_shared<NavigateToPose::Result>();
         result->success = true; result->message = "goal position and orientation reached";

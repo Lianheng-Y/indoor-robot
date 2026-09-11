@@ -6,6 +6,7 @@
 
 #include <geometry_msgs/msg/twist.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include "robot_base_driver/safety_math.hpp"
 
 class VelocitySafety final : public rclcpp::Node
 {
@@ -25,7 +26,7 @@ public:
       "cmd_vel", rclcpp::QoS(10), [this](geometry_msgs::msg::Twist::ConstSharedPtr message) {
         last_command_ = std::chrono::steady_clock::now();
         command_received_ = true;
-        if (!finite(*message)) {
+        if (!robot_base_driver::finite_twist(*message)) {
           command_ = geometry_msgs::msg::Twist();
           RCLCPP_ERROR(get_logger(), "Rejected non-finite velocity command; stopping");
           return;
@@ -39,13 +40,6 @@ public:
   }
 
 private:
-  static bool finite(const geometry_msgs::msg::Twist & twist)
-  {
-    return std::isfinite(twist.linear.x) && std::isfinite(twist.linear.y) &&
-           std::isfinite(twist.linear.z) && std::isfinite(twist.angular.x) &&
-           std::isfinite(twist.angular.y) && std::isfinite(twist.angular.z);
-  }
-
   void publish_safe_command()
   {
     geometry_msgs::msg::Twist safe;
